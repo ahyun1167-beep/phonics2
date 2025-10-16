@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>신나는 파닉스 교실</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Gowun Dodum', sans-serif;
+            touch-action: manipulation; /* 모바일에서 더블 탭 확대 방지 */
+        }
+        .card {
+            transform-style: preserve-3d;
+            transition: transform 0.6s;
+        }
+        .card.flipped {
+            transform: rotateY(180deg);
+        }
+        .card-face {
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+        }
+        .card-back {
+            transform: rotateY(180deg);
+        }
+        /* 버튼 클릭 시 시각적 피드백 */
+        .option-btn:active {
+            transform: scale(0.95);
+            filter: brightness(0.9);
+        }
+        /* 정답/오답 시 애니메이션 */
+        .correct-answer {
+            animation: correct-pulse 0.5s;
+        }
+        .incorrect-answer {
+            animation: incorrect-shake 0.5s;
+        }
+        @keyframes correct-pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        @keyframes incorrect-shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+    </style>
+</head>
+<body class="bg-sky-100 flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-2xl mx-auto">
+        
+        <div id="start-screen" class="bg-white rounded-2xl shadow-xl p-8 text-center">
+            <h1 class="text-4xl font-bold text-sky-600 mb-2">신나는 파닉스 교실</h1>
+            <p class="text-gray-600 mb-8">알파벳 친구들과 함께 소리를 배워보아요!</p>
+            <div class="space-y-4">
+                <button onclick="startQuiz(1)" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-6 rounded-xl text-2xl transition-transform transform hover:scale-105 shadow-lg">레벨 1: 알파벳 짝꿍 찾기</button>
+                <button onclick="startQuiz(2)" class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-4 px-6 rounded-xl text-2xl transition-transform transform hover:scale-105 shadow-lg">레벨 2: 첫소리 찾기</button>
+                <button onclick="startQuiz(3)" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-4 px-6 rounded-xl text-2xl transition-transform transform hover:scale-105 shadow-lg">레벨 3: 단어 만들기</button>
+            </div>
+        </div>
+
+        <div id="quiz-screen" class="hidden bg-white rounded-2xl shadow-xl p-6 sm:p-8">
+            <div class="flex justify-between items-center mb-6">
+                <h2 id="level-title" class="text-2xl sm:text-3xl font-bold text-sky-700"></h2>
+                <div id="progress" class="text-lg font-semibold text-gray-600"></div>
+            </div>
+            
+            <div id="question-area" class="text-center mb-6 min-h-[200px] flex flex-col justify-center items-center bg-sky-50 rounded-xl p-4">
+                <!-- 질문 내용이 여기에 표시됩니다 -->
+            </div>
+
+            <div id="options-container" class="grid grid-cols-2 gap-4">
+                <!-- 선택지 버튼이 여기에 표시됩니다 -->
+            </div>
+            
+            <div id="feedback-area" class="mt-6 text-center min-h-[60px]">
+                 <!-- 정답/오답 피드백이 여기에 표시됩니다 -->
+            </div>
+
+            <div class="mt-6 text-center">
+                <button id="next-button" onclick="nextQuestion()" class="hidden bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 px-8 rounded-lg text-xl transition shadow-md">다음 문제</button>
+                <button onclick="showStartScreen()" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-3 px-8 rounded-lg text-xl transition shadow-md">그만하기</button>
+            </div>
+        </div>
+
+        <div id="result-screen" class="hidden bg-white rounded-2xl shadow-xl p-8 text-center">
+            <h2 class="text-4xl font-bold text-sky-600 mb-4">참 잘했어요!</h2>
+            <p id="score-text" class="text-2xl text-gray-700 mb-8"></p>
+            <button onclick="showStartScreen()" class="bg-sky-500 hover:bg-sky-600 text-white font-bold py-4 px-8 rounded-xl text-2xl transition-transform transform hover:scale-105 shadow-lg">처음으로</button>
+        </div>
+
+    </div>
+
+    <script>
+        // --- 전역 변수 설정 ---
+        const startScreen = document.getElementById('start-screen');
+        const quizScreen = document.getElementById('quiz-screen');
+        const resultScreen = document.getElementById('result-screen');
+        
+        let currentLevel = 1;
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let questions = [];
+        let isAnswering = false; // 사용자의 답변 처리 중인지 확인하는 플래그
+
+        // --- 음성 재생(TTS) 함수 ---
+        function speak(text, lang = 'en-US', callback) {
+            if (speechSynthesis.speaking) {
+                speechSynthesis.cancel();
+            }
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = lang;
+            utterance.rate = 0.9;
+            utterance.pitch = 1.1;
+            
+            utterance.onend = () => {
+                isAnswering = false;
+                if (callback) {
+                    callback();
+                }
+            };
+
+            speechSynthesis.speak(utterance);
+        }
+
+        // --- 퀴즈 데이터 ---
+        const quizData = {
+            1: [ // 레벨 1: 알파벳 대소문자 짝 맞추기
+                { question: 'A', options: ['a', 'b', 'c', 'd'], answer: 'a', explanation: "대문자 A의 짝꿍은 소문자 a 예요." },
+                { question: 'B', options: ['d', 'p', 'b', 'q'], answer: 'b', explanation: "대문자 B의 짝꿍은 소문자 b 예요." },
+                { question: 'C', options: ['s', 'c', 'o', 'e'], answer: 'c', explanation: "대문자 C의 짝꿍은 소문자 c 예요." },
+                { question: 'D', options: ['b', 'd', 'p', 'g'], answer: 'd', explanation: "대문자 D의 짝꿍은 소문자 d 예요." },
+                { question: 'E', options: ['f', 'e', 'c', 'l'], answer: 'e', explanation: "대문자 E의 짝꿍은 소문자 e 예요." },
+            ],
+            2: [ // 레벨 2: 첫소리 찾기 (이미지/단어)
+                { type: 'image', image: '🍎', word: 'Apple', options: ['A', 'B', 'C', 'D'], answer: 'A', explanation: "사과는 Apple, '애' 소리가 나는 A로 시작해요." },
+                { type: 'image', image: '🚌', word: 'Bus', options: ['D', 'C', 'B', 'A'], answer: 'B', explanation: "버스는 Bus, '브' 소리가 나는 B로 시작해요." },
+                { type: 'image', image: '🐱', word: 'Cat', options: ['C', 'K', 'S', 'D'], answer: 'C', explanation: "고양이는 Cat, '크' 소리가 나는 C로 시작해요." },
+                { type: 'image', image: '🐶', word: 'Dog', options: ['B', 'G', 'P', 'D'], answer: 'D', explanation: "강아지는 Dog, '드' 소리가 나는 D로 시작해요." },
+                { type: 'image', image: '🥚', word: 'Egg', options: ['A', 'I', 'E', 'O'], answer: 'E', explanation: "계란은 Egg, '에' 소리가 나는 E로 시작해요." },
+            ],
+            3: [ // 레벨 3: 단어 만들기
+                { image: '🐜', word: 'ant', options: ['a', 'n', 't'], answer: 'ant', explanation: "애, 느, 트 소리를 합쳐 an t, 개미를 만들어요." },
+                { image: '🛏️', word: 'bed', options: ['b', 'e', 'd'], answer: 'bed', explanation: "브, 에, 드 소리를 합쳐 be d, 침대를 만들어요." },
+                { image: '🚗', word: 'car', options: ['c', 'a', 'r'], answer: 'car', explanation: "크, 아, 르 소리를 합쳐 ca r, 자동차를 만들어요." },
+                { image: '☀️', word: 'sun', options: ['s', 'u', 'n'], answer: 'sun', explanation: "스, 어, 느 소리를 합쳐 su n, 해를 만들어요." },
+                { image: '🐷', word: 'pig', options: ['p', 'i', 'g'], answer: 'pig', explanation: "프, 이, 그 소리를 합쳐 pi g, 돼지를 만들어요." },
+            ]
+        };
+        
+        // --- 퀴즈 시작 함수 ---
+        function startQuiz(level) {
+            currentLevel = level;
+            currentQuestionIndex = 0;
+            score = 0;
+            // questions 배열을 섞어서 매번 다른 순서로 출제
+            questions = quizData[level].sort(() => Math.random() - 0.5);
+
+            startScreen.classList.add('hidden');
+            resultScreen.classList.add('hidden');
+            quizScreen.classList.remove('hidden');
+
+            document.getElementById('level-title').textContent = `레벨 ${level}`;
+            displayQuestion();
+        }
+
+        // --- 질문 표시 함수 ---
+        function displayQuestion() {
+            isAnswering = false;
+            const question = questions[currentQuestionIndex];
+            const questionArea = document.getElementById('question-area');
+            const optionsContainer = document.getElementById('options-container');
+            
+            // 초기화
+            questionArea.innerHTML = '';
+            optionsContainer.innerHTML = '';
+            document.getElementById('feedback-area').innerHTML = '';
+            document.getElementById('next-button').classList.add('hidden');
+            document.getElementById('progress').textContent = `문제 ${currentQuestionIndex + 1} / ${questions.length}`;
+
+            // 레벨별 질문 표시
+            if (currentLevel === 1) {
+                questionArea.innerHTML = `<p class="text-8xl font-bold text-sky-500">${question.question}</p>`;
+                speak(question.question);
+            } else if (currentLevel === 2) {
+                questionArea.innerHTML = `<p class="text-8xl">${question.image}</p><p class="text-3xl mt-4 font-semibold text-gray-700">${question.word}</p>`;
+                 speak(question.word);
+            } else if (currentLevel === 3) {
+                 questionArea.innerHTML = `<p class="text-8xl">${question.image}</p><div id="word-display" class="mt-4 h-16 text-4xl font-bold tracking-[1rem] bg-gray-200 rounded-lg flex items-center justify-center w-48 text-gray-500">_ _ _</div>`;
+            }
+            
+            // 선택지 생성 (레벨 1, 2)
+            if (currentLevel === 1 || currentLevel === 2) {
+                optionsContainer.className = 'grid grid-cols-2 gap-4';
+                const shuffledOptions = question.options.sort(() => Math.random() - 0.5);
+                shuffledOptions.forEach(option => {
+                    const button = document.createElement('button');
+                    button.textContent = option;
+                    button.className = 'option-btn bg-white hover:bg-sky-200 border-4 border-sky-300 text-sky-700 font-bold py-6 text-5xl rounded-xl transition-all duration-200';
+                    button.onclick = (e) => checkAnswer(option, e.target);
+                    optionsContainer.appendChild(button);
+                });
+            }
+            // 선택지 생성 (레벨 3)
+            else if (currentLevel === 3) {
+                optionsContainer.className = 'grid grid-cols-3 gap-4';
+                let currentWord = [];
+                const wordDisplay = document.getElementById('word-display');
+                
+                const shuffledOptions = question.options.sort(() => Math.random() - 0.5);
+                shuffledOptions.forEach(letter => {
+                    const button = document.createElement('button');
+                    button.textContent = letter;
+                    button.className = 'option-btn bg-white hover:bg-yellow-200 border-4 border-yellow-400 text-yellow-700 font-bold py-6 text-5xl rounded-xl transition-all duration-200';
+                    button.onclick = () => {
+                        if (currentWord.length < 3 && !button.disabled) {
+                            speak(letter);
+                            currentWord.push(letter);
+                            updateWordDisplay();
+                            button.disabled = true;
+                            button.classList.add('opacity-50', 'cursor-not-allowed');
+                            
+                            if (currentWord.length === 3) {
+                                setTimeout(() => {
+                                    checkAnswer(currentWord.join(''), optionsContainer);
+                                }, 500);
+                            }
+                        }
+                    };
+                    optionsContainer.appendChild(button);
+                });
+
+                function updateWordDisplay() {
+                    let displayText = '';
+                    for (let i = 0; i < 3; i++) {
+                        displayText += (currentWord[i] || '_') + ' ';
+                    }
+                    wordDisplay.textContent = displayText.trim();
+                    wordDisplay.classList.remove('text-gray-500');
+                }
+            }
+        }
+        
+        // --- 답변 확인 함수 ---
+        function checkAnswer(selectedAnswer, element) {
+            if (isAnswering) return;
+            isAnswering = true;
+
+            const question = questions[currentQuestionIndex];
+            const feedbackArea = document.getElementById('feedback-area');
+            const nextButton = document.getElementById('next-button');
+            const allOptions = document.querySelectorAll('.option-btn');
+
+            if (selectedAnswer === question.answer) {
+                // 정답일 때
+                score++;
+                feedbackArea.innerHTML = `<p class="text-3xl font-bold text-green-500">정답입니다!</p>`;
+                speak("Correct!", 'en-US');
+                
+                if (currentLevel === 3) {
+                    document.getElementById('word-display').classList.add('text-green-500');
+                } else {
+                    element.classList.remove('bg-white', 'border-sky-300');
+                    element.classList.add('bg-green-500', 'text-white', 'border-green-600', 'correct-answer');
+                }
+                
+                allOptions.forEach(btn => btn.disabled = true);
+                
+                setTimeout(() => {
+                    nextQuestion();
+                }, 1500);
+
+            } else {
+                // 오답일 때
+                feedbackArea.innerHTML = `<p class="text-2xl font-bold text-red-500">아쉬워요, 다시 생각해볼까요?</p><p class="text-lg text-gray-600">${question.explanation}</p>`;
+                
+                if (currentLevel === 3) {
+                     document.getElementById('word-display').classList.add('text-red-500', 'incorrect-answer');
+                } else {
+                    element.classList.add('incorrect-answer');
+                }
+                
+                allOptions.forEach(btn => btn.disabled = true);
+                
+                speak(question.explanation, 'ko-KR', () => {
+                    nextButton.classList.remove('hidden');
+                });
+            }
+        }
+
+        // --- 다음 문제로 넘어가는 함수 ---
+        function nextQuestion() {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < questions.length) {
+                displayQuestion();
+            } else {
+                showResult();
+            }
+        }
+
+        // --- 결과 표시 함수 ---
+        function showResult() {
+            quizScreen.classList.add('hidden');
+            resultScreen.classList.remove('hidden');
+            document.getElementById('score-text').textContent = `총 ${questions.length} 문제 중 ${score} 문제를 맞혔어요!`;
+        }
+        
+        // --- 시작 화면으로 돌아가는 함수 ---
+        function showStartScreen() {
+            resultScreen.classList.add('hidden');
+            quizScreen.classList.add('hidden');
+            startScreen.classList.remove('hidden');
+        }
+
+    </script>
+</body>
+</html>
