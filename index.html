@@ -26,7 +26,7 @@
             transform: rotateY(180deg);
         }
         /* 버튼 클릭 시 시각적 피드백 */
-        .option-btn:active {
+        .option-btn:active, .action-btn:active {
             transform: scale(0.95);
             filter: brightness(0.9);
         }
@@ -57,11 +57,20 @@
             <h1 class="text-4xl font-bold text-sky-600 mb-2">신나는 파닉스 교실</h1>
             <p class="text-gray-600 mb-8">알파벳 친구들과 함께 소리를 배워보아요!</p>
             <div class="space-y-4">
-                <button onclick="startQuiz(1)" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-6 rounded-xl text-2xl transition-transform transform hover:scale-105 shadow-lg">레벨 1: 알파벳 짝꿍 찾기</button>
-                <button onclick="startQuiz(2)" class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-4 px-6 rounded-xl text-2xl transition-transform transform hover:scale-105 shadow-lg">레벨 2: 첫소리 찾기</button>
-                <button onclick="startQuiz(3)" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-4 px-6 rounded-xl text-2xl transition-transform transform hover:scale-105 shadow-lg">레벨 3: 단어 만들기</button>
+                <button onclick="showQuestionCountScreen(1)" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-6 rounded-xl text-2xl transition-transform transform hover:scale-105 shadow-lg action-btn">레벨 1: 알파벳 짝꿍 찾기</button>
+                <button onclick="showQuestionCountScreen(2)" class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-4 px-6 rounded-xl text-2xl transition-transform transform hover:scale-105 shadow-lg action-btn">레벨 2: 첫소리 찾기</button>
+                <button onclick="showQuestionCountScreen(3)" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-4 px-6 rounded-xl text-2xl transition-transform transform hover:scale-105 shadow-lg action-btn">레벨 3: 단어 만들기</button>
             </div>
         </div>
+        
+        <div id="question-count-screen" class="hidden bg-white rounded-2xl shadow-xl p-8 text-center">
+            <h2 id="question-count-title" class="text-3xl font-bold text-sky-600 mb-6"></h2>
+            <div id="question-count-options" class="space-y-4">
+                <!-- 문제 수 선택 버튼이 여기에 생성됩니다. -->
+            </div>
+            <button onclick="showStartScreen()" class="mt-8 bg-gray-400 hover:bg-gray-500 text-white font-bold py-3 px-8 rounded-lg text-xl transition shadow-md action-btn">뒤로가기</button>
+        </div>
+
 
         <div id="quiz-screen" class="hidden bg-white rounded-2xl shadow-xl p-6 sm:p-8">
             <div class="flex justify-between items-center mb-6">
@@ -81,16 +90,17 @@
                  <!-- 정답/오답 피드백이 여기에 표시됩니다 -->
             </div>
 
-            <div class="mt-6 text-center">
-                <button id="next-button" onclick="nextQuestion()" class="hidden bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 px-8 rounded-lg text-xl transition shadow-md">다음 문제</button>
-                <button onclick="showStartScreen()" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-3 px-8 rounded-lg text-xl transition shadow-md">그만하기</button>
+            <div class="mt-6 text-center space-x-4">
+                <button id="retry-button" onclick="retryQuestion()" class="hidden bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-8 rounded-lg text-xl transition shadow-md action-btn">다시 시도</button>
+                <button id="next-button" onclick="nextQuestion()" class="hidden bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 px-8 rounded-lg text-xl transition shadow-md action-btn">다음 문제</button>
+                <button onclick="showStartScreen()" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-3 px-8 rounded-lg text-xl transition shadow-md action-btn">그만하기</button>
             </div>
         </div>
 
         <div id="result-screen" class="hidden bg-white rounded-2xl shadow-xl p-8 text-center">
             <h2 class="text-4xl font-bold text-sky-600 mb-4">참 잘했어요!</h2>
             <p id="score-text" class="text-2xl text-gray-700 mb-8"></p>
-            <button onclick="showStartScreen()" class="bg-sky-500 hover:bg-sky-600 text-white font-bold py-4 px-8 rounded-xl text-2xl transition-transform transform hover:scale-105 shadow-lg">처음으로</button>
+            <button onclick="showStartScreen()" class="bg-sky-500 hover:bg-sky-600 text-white font-bold py-4 px-8 rounded-xl text-2xl transition-transform transform hover:scale-105 shadow-lg action-btn">처음으로</button>
         </div>
 
     </div>
@@ -98,6 +108,7 @@
     <script>
         // --- 전역 변수 설정 ---
         const startScreen = document.getElementById('start-screen');
+        const questionCountScreen = document.getElementById('question-count-screen');
         const quizScreen = document.getElementById('quiz-screen');
         const resultScreen = document.getElementById('result-screen');
         
@@ -105,7 +116,7 @@
         let currentQuestionIndex = 0;
         let score = 0;
         let questions = [];
-        let isAnswering = false; // 사용자의 답변 처리 중인지 확인하는 플래그
+        let isAnswering = false;
 
         // --- 음성 재생(TTS) 함수 ---
         function speak(text, lang = 'en-US', callback) {
@@ -129,42 +140,144 @@
 
         // --- 퀴즈 데이터 ---
         const quizData = {
-            1: [ // 레벨 1: 알파벳 대소문자 짝 맞추기
-                { question: 'A', options: ['a', 'b', 'c', 'd'], answer: 'a', explanation: "대문자 A의 짝꿍은 소문자 a 예요." },
-                { question: 'B', options: ['d', 'p', 'b', 'q'], answer: 'b', explanation: "대문자 B의 짝꿍은 소문자 b 예요." },
-                { question: 'C', options: ['s', 'c', 'o', 'e'], answer: 'c', explanation: "대문자 C의 짝꿍은 소문자 c 예요." },
-                { question: 'D', options: ['b', 'd', 'p', 'g'], answer: 'd', explanation: "대문자 D의 짝꿍은 소문자 d 예요." },
-                { question: 'E', options: ['f', 'e', 'c', 'l'], answer: 'e', explanation: "대문자 E의 짝꿍은 소문자 e 예요." },
-            ],
-            2: [ // 레벨 2: 첫소리 찾기 (이미지/단어)
-                { type: 'image', image: '🍎', word: 'Apple', options: ['A', 'B', 'C', 'D'], answer: 'A', explanation: "사과는 Apple, '애' 소리가 나는 A로 시작해요." },
-                { type: 'image', image: '🚌', word: 'Bus', options: ['D', 'C', 'B', 'A'], answer: 'B', explanation: "버스는 Bus, '브' 소리가 나는 B로 시작해요." },
-                { type: 'image', image: '🐱', word: 'Cat', options: ['C', 'K', 'S', 'D'], answer: 'C', explanation: "고양이는 Cat, '크' 소리가 나는 C로 시작해요." },
-                { type: 'image', image: '🐶', word: 'Dog', options: ['B', 'G', 'P', 'D'], answer: 'D', explanation: "강아지는 Dog, '드' 소리가 나는 D로 시작해요." },
-                { type: 'image', image: '🥚', word: 'Egg', options: ['A', 'I', 'E', 'O'], answer: 'E', explanation: "계란은 Egg, '에' 소리가 나는 E로 시작해요." },
-            ],
-            3: [ // 레벨 3: 단어 만들기
-                { image: '🐜', word: 'ant', options: ['a', 'n', 't'], answer: 'ant', explanation: "애, 느, 트 소리를 합쳐 an t, 개미를 만들어요." },
-                { image: '🛏️', word: 'bed', options: ['b', 'e', 'd'], answer: 'bed', explanation: "브, 에, 드 소리를 합쳐 be d, 침대를 만들어요." },
-                { image: '🚗', word: 'car', options: ['c', 'a', 'r'], answer: 'car', explanation: "크, 아, 르 소리를 합쳐 ca r, 자동차를 만들어요." },
-                { image: '☀️', word: 'sun', options: ['s', 'u', 'n'], answer: 'sun', explanation: "스, 어, 느 소리를 합쳐 su n, 해를 만들어요." },
-                { image: '🐷', word: 'pig', options: ['p', 'i', 'g'], answer: 'pig', explanation: "프, 이, 그 소리를 합쳐 pi g, 돼지를 만들어요." },
-            ]
+            1: Array.from({ length: 26 }, (_, i) => {
+                const charCode = 65 + i;
+                const upper = String.fromCharCode(charCode);
+                const lower = String.fromCharCode(charCode + 32);
+                const options = [lower];
+                while (options.length < 4) {
+                    const randomLower = String.fromCharCode(97 + Math.floor(Math.random() * 26));
+                    if (!options.includes(randomLower)) {
+                        options.push(randomLower);
+                    }
+                }
+                return { question: upper, options: options.sort(() => Math.random() - 0.5), answer: lower, explanation: `대문자 ${upper}의 짝꿍은 소문자 ${lower} 예요.` };
+            }),
+            2: [
+                { image: '🍎', word: 'Apple', answer: 'A', explanation: "사과는 Apple, '애' 소리가 나는 A로 시작해요." },
+                { image: '🚌', word: 'Bus', answer: 'B', explanation: "버스는 Bus, '브' 소리가 나는 B로 시작해요." },
+                { image: '🐱', word: 'Cat', answer: 'C', explanation: "고양이는 Cat, '크' 소리가 나는 C로 시작해요." },
+                { image: '🐶', word: 'Dog', answer: 'D', explanation: "강아지는 Dog, '드' 소리가 나는 D로 시작해요." },
+                { image: '🥚', word: 'Egg', answer: 'E', explanation: "계란은 Egg, '에' 소리가 나는 E로 시작해요." },
+                { image: '🦊', word: 'Fox', answer: 'F', explanation: "여우는 Fox, '프' 소리가 나는 F로 시작해요." },
+                { image: '🍇', word: 'Grape', answer: 'G', explanation: "포도는 Grape, '그' 소리가 나는 G로 시작해요." },
+                { image: '👒', word: 'Hat', answer: 'H', explanation: "모자는 Hat, '흐' 소리가 나는 H로 시작해요." },
+                { image: '🧊', word: 'Ice', answer: 'I', explanation: "얼음은 Ice, '아이' 소리가 나는 I로 시작해요." },
+                { image: '🫙', word: 'Jam', answer: 'J', explanation: "잼은 Jam, '즈' 소리가 나는 J로 시작해요." },
+                { image: '🔑', word: 'Key', answer: 'K', explanation: "열쇠는 Key, '크' 소리가 나는 K로 시작해요." },
+                { image: '🦁', word: 'Lion', answer: 'L', explanation: "사자는 Lion, '르' 소리가 나는 L로 시작해요." },
+                { image: '🌕', word: 'Moon', answer: 'M', explanation: "달은 Moon, '므' 소리가 나는 M으로 시작해요." },
+                { image: '🥅', word: 'Net', answer: 'N', explanation: "그물은 Net, '느' 소리가 나는 N으로 시작해요." },
+                { image: '🐙', word: 'Octopus', answer: 'O', explanation: "문어는 Octopus, '아' 소리가 나는 O로 시작해요." },
+                { image: '✏️', word: 'Pencil', answer: 'P', explanation: "연필은 Pencil, '프' 소리가 나는 P로 시작해요." },
+                { image: '👸', word: 'Queen', answer: 'Q', explanation: "여왕은 Queen, '쿼' 소리가 나는 Q로 시작해요." },
+                { image: '💍', word: 'Ring', answer: 'R', explanation: "반지는 Ring, '르' 소리가 나는 R로 시작해요." },
+                { image: '☀️', word: 'Sun', answer: 'S', explanation: "해는 Sun, '스' 소리가 나는 S로 시작해요." },
+                { image: '🐢', word: 'Turtle', answer: 'T', explanation: "거북이는 Turtle, '트' 소리가 나는 T로 시작해요." },
+                { image: '☂️', word: 'Umbrella', answer: 'U', explanation: "우산은 Umbrella, '어' 소리가 나는 U로 시작해요." },
+                { image: '🎻', word: 'Violin', answer: 'V', explanation: "바이올린은 Violin, '브' 소리가 나는 V로 시작해요." },
+                { image: '⌚', word: 'Watch', answer: 'W', explanation: "시계는 Watch, '워' 소리가 나는 W로 시작해요." },
+                { image: '🎶', word: 'Xylophone', answer: 'X', explanation: "실로폰은 Xylophone, '크스' 소리가 나는 X로 시작해요." },
+                { image: '🪀', word: 'Yoyo', answer: 'Y', explanation: "요요는 Yoyo, '여' 소리가 나는 Y로 시작해요." },
+                { image: '🦓', word: 'Zebra', answer: 'Z', explanation: "얼룩말은 Zebra, '즈' 소리가 나는 Z로 시작해요." },
+                { image: '🚗', word: 'Car', answer: 'C', explanation: "자동차는 Car, '크' 소리가 나는 C로 시작해요." },
+                { image: '🖐️', word: 'Hand', answer: 'H', explanation: "손은 Hand, '흐' 소리가 나는 H로 시작해요." },
+                { image: '🦵', word: 'Leg', answer: 'L', explanation: "다리는 Leg, '르' 소리가 나는 L로 시작해요." },
+                { image: '🐷', word: 'Pig', answer: 'P', explanation: "돼지는 Pig, '프' 소리가 나는 P로 시작해요." },
+            ].map(q => {
+                const options = [q.answer];
+                 while (options.length < 4) {
+                    const randomLetter = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+                    if (!options.includes(randomLetter)) {
+                        options.push(randomLetter);
+                    }
+                }
+                q.options = options.sort(() => Math.random() - 0.5);
+                return q;
+            }),
+            3: [
+                { image: '🐜', word: 'ant', explanation: "애, 느, 트 소리를 합쳐 an t, 개미를 만들어요." },
+                { image: '🛏️', word: 'bed', explanation: "브, 에, 드 소리를 합쳐 be d, 침대를 만들어요." },
+                { image: '🚗', word: 'car', explanation: "크, 아, 르 소리를 합쳐 ca r, 자동차를 만들어요." },
+                { image: '☀️', word: 'sun', explanation: "스, 어, 느 소리를 합쳐 su n, 해를 만들어요." },
+                { image: '🐷', word: 'pig', explanation: "프, 이, 그 소리를 합쳐 pi g, 돼지를 만들어요." },
+                { image: '🧢', word: 'cap', explanation: "크, 애, 프 소리를 합쳐 ca p, 모자를 만들어요." },
+                { image: '🐱', word: 'cat', explanation: "크, 애, 트 소리를 합쳐 ca t, 고양이를 만들어요." },
+                { image: '🥤', word: 'cup', explanation: "크, 어, 프 소리를 합쳐 cu p, 컵을 만들어요." },
+                { image: '🐶', word: 'dog', explanation: "드, 아, 그 소리를 합쳐 do g, 강아지를 만들어요." },
+                { image: '🦊', word: 'fox', explanation: "프, 아, 크스 소리를 합쳐 fo x, 여우를 만들어요." },
+                { image: '🎩', word: 'hat', explanation: "흐, 애, 트 소리를 합쳐 ha t, 모자를 만들어요." },
+                { image: '🐔', word: 'hen', explanation: "흐, 에, 느 소리를 합쳐 he n, 암탉을 만들어요." },
+                { image: '🔥', word: 'hot', explanation: "흐, 아, 트 소리를 합쳐 ho t, 뜨거운 것을 만들어요." },
+                { image: '🫙', word: 'jam', explanation: "즈, 애, 므 소리를 합쳐 ja m, 잼을 만들어요." },
+                { image: '✈️', word: 'jet', explanation: "즈, 에, 트 소리를 합쳐 je t, 제트기를 만들어요." },
+                { image: '👄', word: 'lip', explanation: "르, 이, 프 소리를 합쳐 li p, 입술을 만들어요." },
+                { image: '🗺️', word: 'map', explanation: "므, 애, 프 소리를 합쳐 ma p, 지도를 만들어요." },
+                { image: '👨', word: 'man', explanation: "므, 애, 느 소리를 합쳐 ma n, 남자를 만들어요." },
+                { image: '🥅', word: 'net', explanation: "느, 에, 트 소리를 합쳐 ne t, 그물을 만들어요." },
+                { image: '🖊️', word: 'pen', explanation: "프, 에, 느 소리를 합쳐 pe n, 펜을 만들어요." },
+                { image: '📌', word: 'pin', explanation: "프, 이, 느 소리를 합쳐 pi n, 핀을 만들어요." },
+                { image: '🍲', word: 'pot', explanation: "프, 아, 트 소리를 합쳐 po t, 냄비를 만들어요." },
+                { image: '🏃', word: 'run', explanation: "르, 어, 느 소리를 합쳐 ru n, 달리기를 만들어요." },
+                { image: '😥', word: 'sad', explanation: "스, 애, 드 소리를 합쳐 sa d, 슬픈 감정을 만들어요." },
+                { image: '🧎', word: 'sit', explanation: "스, 이, 트 소리를 합쳐 si t, 앉는 것을 만들어요." },
+                { image: '🏔️', word: 'top', explanation: "트, 아, 프 소리를 합쳐 to p, 꼭대기를 만들어요." },
+                { image: '🧸', word: 'toy', explanation: "트, 오이, 소리를 합쳐 to y, 장난감을 만들어요." },
+                { image: '👕💦', word: 'wet', explanation: "워, 에, 트 소리를 합쳐 we t, 젖은 것을 만들어요." },
+                { image: '🏆', word: 'win', explanation: "워, 이, 느 소리를 합쳐 wi n, 이기는 것을 만들어요." },
+                { image: '💤', word: 'zzz', explanation: "즈, 즈, 즈 소리를 합쳐 z z z, 잠자는 소리를 만들어요." }
+            ].map(q => {
+                q.options = q.word.split('');
+                q.answer = q.word;
+                return q;
+            })
         };
         
-        // --- 퀴즈 시작 함수 ---
-        function startQuiz(level) {
+        // --- 문제 수 선택 화면 표시 ---
+        function showQuestionCountScreen(level) {
             currentLevel = level;
-            currentQuestionIndex = 0;
-            score = 0;
-            // questions 배열을 섞어서 매번 다른 순서로 출제
-            questions = quizData[level].sort(() => Math.random() - 0.5);
+            const totalQuestions = quizData[level].length;
+            const titleEl = document.getElementById('question-count-title');
+            const optionsEl = document.getElementById('question-count-options');
+
+            titleEl.textContent = `레벨 ${level}: 몇 문제를 풀어볼까요?`;
+            optionsEl.innerHTML = ''; // 이전 옵션 초기화
+
+            const counts = [5, 10, 20, 30]; 
+            counts.forEach(count => {
+                if (totalQuestions >= count) {
+                    const button = document.createElement('button');
+                    button.textContent = `${count} 문제`;
+                    button.className = 'w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-6 rounded-xl text-2xl transition-transform transform hover:scale-105 shadow-lg action-btn';
+                    button.onclick = () => startQuiz(count);
+                    optionsEl.appendChild(button);
+                }
+            });
+
+            if (counts[counts.length - 1] < totalQuestions) {
+                const allButton = document.createElement('button');
+                allButton.textContent = `전체 (${totalQuestions} 문제)`;
+                allButton.className = 'w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-4 px-6 rounded-xl text-2xl transition-transform transform hover:scale-105 shadow-lg action-btn';
+                allButton.onclick = () => startQuiz(totalQuestions);
+                optionsEl.appendChild(allButton);
+            }
+
 
             startScreen.classList.add('hidden');
+            questionCountScreen.classList.remove('hidden');
+        }
+
+        // --- 퀴즈 시작 함수 ---
+        function startQuiz(count) {
+            currentQuestionIndex = 0;
+            score = 0;
+            questions = quizData[currentLevel].sort(() => Math.random() - 0.5).slice(0, count);
+
+            questionCountScreen.classList.add('hidden');
             resultScreen.classList.add('hidden');
             quizScreen.classList.remove('hidden');
 
-            document.getElementById('level-title').textContent = `레벨 ${level}`;
+            document.getElementById('level-title').textContent = `레벨 ${currentLevel}`;
             displayQuestion();
         }
 
@@ -175,10 +288,11 @@
             const questionArea = document.getElementById('question-area');
             const optionsContainer = document.getElementById('options-container');
             
-            // 초기화
+            // UI 초기화
             questionArea.innerHTML = '';
             optionsContainer.innerHTML = '';
             document.getElementById('feedback-area').innerHTML = '';
+            document.getElementById('retry-button').classList.add('hidden');
             document.getElementById('next-button').classList.add('hidden');
             document.getElementById('progress').textContent = `문제 ${currentQuestionIndex + 1} / ${questions.length}`;
 
@@ -187,7 +301,7 @@
                 questionArea.innerHTML = `<p class="text-8xl font-bold text-sky-500">${question.question}</p>`;
                 speak(question.question);
             } else if (currentLevel === 2) {
-                questionArea.innerHTML = `<p class="text-8xl">${question.image}</p><p class="text-3xl mt-4 font-semibold text-gray-700">${question.word}</p>`;
+                questionArea.innerHTML = `<p class="text-8xl">${question.image}</p>`;
                  speak(question.word);
             } else if (currentLevel === 3) {
                  questionArea.innerHTML = `<p class="text-8xl">${question.image}</p><div id="word-display" class="mt-4 h-16 text-4xl font-bold tracking-[1rem] bg-gray-200 rounded-lg flex items-center justify-center w-48 text-gray-500">_ _ _</div>`;
@@ -252,11 +366,10 @@
 
             const question = questions[currentQuestionIndex];
             const feedbackArea = document.getElementById('feedback-area');
-            const nextButton = document.getElementById('next-button');
             const allOptions = document.querySelectorAll('.option-btn');
+            allOptions.forEach(btn => btn.disabled = true);
 
             if (selectedAnswer === question.answer) {
-                // 정답일 때
                 score++;
                 feedbackArea.innerHTML = `<p class="text-3xl font-bold text-green-500">정답입니다!</p>`;
                 speak("Correct!", 'en-US');
@@ -267,15 +380,12 @@
                     element.classList.remove('bg-white', 'border-sky-300');
                     element.classList.add('bg-green-500', 'text-white', 'border-green-600', 'correct-answer');
                 }
-                
-                allOptions.forEach(btn => btn.disabled = true);
-                
+                                
                 setTimeout(() => {
                     nextQuestion();
                 }, 1500);
 
             } else {
-                // 오답일 때
                 feedbackArea.innerHTML = `<p class="text-2xl font-bold text-red-500">아쉬워요, 다시 생각해볼까요?</p><p class="text-lg text-gray-600">${question.explanation}</p>`;
                 
                 if (currentLevel === 3) {
@@ -283,13 +393,16 @@
                 } else {
                     element.classList.add('incorrect-answer');
                 }
-                
-                allOptions.forEach(btn => btn.disabled = true);
-                
+                                
                 speak(question.explanation, 'ko-KR', () => {
-                    nextButton.classList.remove('hidden');
+                    document.getElementById('retry-button').classList.remove('hidden');
+                    document.getElementById('next-button').classList.remove('hidden');
                 });
             }
+        }
+
+        function retryQuestion() {
+            displayQuestion();
         }
 
         // --- 다음 문제로 넘어가는 함수 ---
@@ -313,9 +426,14 @@
         function showStartScreen() {
             resultScreen.classList.add('hidden');
             quizScreen.classList.add('hidden');
+            questionCountScreen.classList.add('hidden');
             startScreen.classList.remove('hidden');
         }
 
     </script>
 </body>
 </html>
+
+
+
+
