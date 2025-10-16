@@ -111,56 +111,67 @@
         const questionCountScreen = document.getElementById('question-count-screen');
         const quizScreen = document.getElementById('quiz-screen');
         const resultScreen = document.getElementById('result-screen');
+        const nextButton = document.getElementById('next-button');
+        const retryButton = document.getElementById('retry-button');
         
         let currentLevel = 1;
         let currentQuestionIndex = 0;
         let score = 0;
         let questions = [];
         let isAnswering = false;
+        // 레벨 3에서 사용하는 변수들
+        let level3_currentWord = [];
+        let level3_letterTiles = {};
 
         // --- 음성 재생(TTS) 함수 ---
         function speak(text, lang = 'en-US', callback) {
             if (speechSynthesis.speaking) {
-                speechSynthesis.cancel();
+                speechSynthesis.cancel(); // 진행중인 음성 취소
             }
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = lang;
-            utterance.rate = 0.9;
-            utterance.pitch = 1.1;
-            
-            utterance.onend = () => {
-                isAnswering = false;
-                if (callback) {
-                    callback();
-                }
-            };
-
-            speechSynthesis.speak(utterance);
+            // A brief delay to ensure cancellation is processed
+            setTimeout(() => {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = lang;
+                utterance.rate = 0.9;
+                utterance.onend = callback;
+                speechSynthesis.speak(utterance);
+            }, 100);
         }
 
         // --- 퀴즈 데이터 ---
         const quizData = {
-            1: Array.from({ length: 26 }, (_, i) => {
-                const charCode = 65 + i;
-                const upper = String.fromCharCode(charCode);
-                const lower = String.fromCharCode(charCode + 32);
-                const options = [lower];
+            1: [
+                { question: 'A', answer: 'a' }, { question: 'B', answer: 'b' }, { question: 'C', answer: 'c' },
+                { question: 'D', answer: 'd' }, { question: 'E', answer: 'e' }, { question: 'F', answer: 'f' },
+                { question: 'G', answer: 'g' }, { question: 'H', answer: 'h' }, { question: 'I', answer: 'i' },
+                { question: 'J', answer: 'j' }, { question: 'K', answer: 'k' }, { question: 'L', answer: 'l' },
+                { question: 'M', answer: 'm' }, { question: 'N', answer: 'n' }, { question: 'O', answer: 'o' },
+                { question: 'P', answer: 'p' }, { question: 'Q', answer: 'q' }, { question: 'R', answer: 'r' },
+                { question: 'S', answer: 's' }, { question: 'T', answer: 't' }, { question: 'U', answer: 'u' },
+                { question: 'V', answer: 'v' }, { question: 'W', answer: 'w' }, { question: 'X', answer: 'x' },
+                { question: 'Y', answer: 'y' }, { question: 'Z', answer: 'z' }
+            ].map(q => {
+                const options = [q.answer];
+                const allAnswers = 'abcdefghijklmnopqrstuvwxyz'.split('');
                 while (options.length < 4) {
-                    const randomLower = String.fromCharCode(97 + Math.floor(Math.random() * 26));
-                    if (!options.includes(randomLower)) {
-                        options.push(randomLower);
+                    const randomAnswer = allAnswers[Math.floor(Math.random() * allAnswers.length)];
+                    if (!options.includes(randomAnswer)) {
+                        options.push(randomAnswer);
                     }
                 }
-                return { question: upper, options: options.sort(() => Math.random() - 0.5), answer: lower, explanation: `대문자 ${upper}의 짝꿍은 소문자 ${lower} 예요.` };
+                return {
+                    ...q,
+                    options: options.sort(() => Math.random() - 0.5)
+                };
             }),
             2: [
                 { image: '🍎', word: 'Apple', answer: 'A', explanation: "사과는 Apple, '애' 소리가 나는 A로 시작해요." },
-                { image: '🚌', word: 'Bus', answer: 'B', explanation: "버스는 Bus, '브' 소리가 나는 B로 시작해요." },
-                { image: '🐱', word: 'Cat', answer: 'C', explanation: "고양이는 Cat, '크' 소리가 나는 C로 시작해요." },
+                { image: '🎈', word: 'Balloon', answer: 'B', explanation: "풍선은 Balloon, '브' 소리가 나는 B로 시작해요." },
+                { image: '🎂', word: 'Cake', answer: 'C', explanation: "케이크는 Cake, '크' 소리가 나는 C로 시작해요." },
                 { image: '🐶', word: 'Dog', answer: 'D', explanation: "강아지는 Dog, '드' 소리가 나는 D로 시작해요." },
-                { image: '🥚', word: 'Egg', answer: 'E', explanation: "계란은 Egg, '에' 소리가 나는 E로 시작해요." },
-                { image: '🦊', word: 'Fox', answer: 'F', explanation: "여우는 Fox, '프' 소리가 나는 F로 시작해요." },
-                { image: '🍇', word: 'Grape', answer: 'G', explanation: "포도는 Grape, '그' 소리가 나는 G로 시작해요." },
+                { image: '🐘', word: 'Elephant', answer: 'E', explanation: "코끼리는 Elephant, '에' 소리가 나는 E로 시작해요." },
+                { image: '🐸', word: 'Frog', answer: 'F', explanation: "개구리는 Frog, '프' 소리가 나는 F로 시작해요." },
+                { image: '🍇', word: 'Grapes', answer: 'G', explanation: "포도는 Grapes, '그' 소리가 나는 G로 시작해요." },
                 { image: '👒', word: 'Hat', answer: 'H', explanation: "모자는 Hat, '흐' 소리가 나는 H로 시작해요." },
                 { image: '🧊', word: 'Ice', answer: 'I', explanation: "얼음은 Ice, '아이' 소리가 나는 I로 시작해요." },
                 { image: '🫙', word: 'Jam', answer: 'J', explanation: "잼은 Jam, '즈' 소리가 나는 J로 시작해요." },
@@ -173,7 +184,7 @@
                 { image: '👸', word: 'Queen', answer: 'Q', explanation: "여왕은 Queen, '쿼' 소리가 나는 Q로 시작해요." },
                 { image: '💍', word: 'Ring', answer: 'R', explanation: "반지는 Ring, '르' 소리가 나는 R로 시작해요." },
                 { image: '☀️', word: 'Sun', answer: 'S', explanation: "해는 Sun, '스' 소리가 나는 S로 시작해요." },
-                { image: '🐢', word: 'Turtle', answer: 'T', explanation: "거북이는 Turtle, '트' 소리가 나는 T로 시작해요." },
+                { image: '🐯', word: 'Tiger', answer: 'T', explanation: "호랑이는 Tiger, '트' 소리가 나는 T로 시작해요." },
                 { image: '☂️', word: 'Umbrella', answer: 'U', explanation: "우산은 Umbrella, '어' 소리가 나는 U로 시작해요." },
                 { image: '🎻', word: 'Violin', answer: 'V', explanation: "바이올린은 Violin, '브' 소리가 나는 V로 시작해요." },
                 { image: '⌚', word: 'Watch', answer: 'W', explanation: "시계는 Watch, '워' 소리가 나는 W로 시작해요." },
@@ -182,121 +193,134 @@
                 { image: '🦓', word: 'Zebra', answer: 'Z', explanation: "얼룩말은 Zebra, '즈' 소리가 나는 Z로 시작해요." },
                 { image: '🚗', word: 'Car', answer: 'C', explanation: "자동차는 Car, '크' 소리가 나는 C로 시작해요." },
                 { image: '🖐️', word: 'Hand', answer: 'H', explanation: "손은 Hand, '흐' 소리가 나는 H로 시작해요." },
-                { image: '🦵', word: 'Leg', answer: 'L', explanation: "다리는 Leg, '르' 소리가 나는 L로 시작해요." },
+                { image: '🚶', word: 'Leg', answer: 'L', explanation: "다리는 Leg, '르' 소리가 나는 L로 시작해요." },
                 { image: '🐷', word: 'Pig', answer: 'P', explanation: "돼지는 Pig, '프' 소리가 나는 P로 시작해요." },
             ].map(q => {
                 const options = [q.answer];
-                 while (options.length < 4) {
-                    const randomLetter = String.fromCharCode(65 + Math.floor(Math.random() * 26));
-                    if (!options.includes(randomLetter)) {
-                        options.push(randomLetter);
+                const allAnswers = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
+                while (options.length < 4) {
+                    const randomAnswer = allAnswers[Math.floor(Math.random() * allAnswers.length)];
+                    if (!options.includes(randomAnswer)) {
+                        options.push(randomAnswer);
                     }
                 }
-                q.options = options.sort(() => Math.random() - 0.5);
-                return q;
+                return {
+                    ...q,
+                    options: options.sort(() => Math.random() - 0.5)
+                };
             }),
             3: [
-                { image: '🐜', word: 'ant', explanation: "애, 느, 트 소리를 합쳐 an t, 개미를 만들어요." },
-                { image: '🛏️', word: 'bed', explanation: "브, 에, 드 소리를 합쳐 be d, 침대를 만들어요." },
-                { image: '🚗', word: 'car', explanation: "크, 아, 르 소리를 합쳐 ca r, 자동차를 만들어요." },
-                { image: '☀️', word: 'sun', explanation: "스, 어, 느 소리를 합쳐 su n, 해를 만들어요." },
-                { image: '🐷', word: 'pig', explanation: "프, 이, 그 소리를 합쳐 pi g, 돼지를 만들어요." },
-                { image: '🧢', word: 'cap', explanation: "크, 애, 프 소리를 합쳐 ca p, 모자를 만들어요." },
-                { image: '🐱', word: 'cat', explanation: "크, 애, 트 소리를 합쳐 ca t, 고양이를 만들어요." },
-                { image: '🥤', word: 'cup', explanation: "크, 어, 프 소리를 합쳐 cu p, 컵을 만들어요." },
-                { image: '🐶', word: 'dog', explanation: "드, 아, 그 소리를 합쳐 do g, 강아지를 만들어요." },
-                { image: '🦊', word: 'fox', explanation: "프, 아, 크스 소리를 합쳐 fo x, 여우를 만들어요." },
-                { image: '🎩', word: 'hat', explanation: "흐, 애, 트 소리를 합쳐 ha t, 모자를 만들어요." },
-                { image: '🐔', word: 'hen', explanation: "흐, 에, 느 소리를 합쳐 he n, 암탉을 만들어요." },
-                { image: '🔥', word: 'hot', explanation: "흐, 아, 트 소리를 합쳐 ho t, 뜨거운 것을 만들어요." },
-                { image: '🫙', word: 'jam', explanation: "즈, 애, 므 소리를 합쳐 ja m, 잼을 만들어요." },
-                { image: '✈️', word: 'jet', explanation: "즈, 에, 트 소리를 합쳐 je t, 제트기를 만들어요." },
-                { image: '👄', word: 'lip', explanation: "르, 이, 프 소리를 합쳐 li p, 입술을 만들어요." },
-                { image: '🗺️', word: 'map', explanation: "므, 애, 프 소리를 합쳐 ma p, 지도를 만들어요." },
-                { image: '👨', word: 'man', explanation: "므, 애, 느 소리를 합쳐 ma n, 남자를 만들어요." },
-                { image: '🥅', word: 'net', explanation: "느, 에, 트 소리를 합쳐 ne t, 그물을 만들어요." },
-                { image: '🖊️', word: 'pen', explanation: "프, 에, 느 소리를 합쳐 pe n, 펜을 만들어요." },
-                { image: '📌', word: 'pin', explanation: "프, 이, 느 소리를 합쳐 pi n, 핀을 만들어요." },
-                { image: '🍲', word: 'pot', explanation: "프, 아, 트 소리를 합쳐 po t, 냄비를 만들어요." },
-                { image: '🏃', word: 'run', explanation: "르, 어, 느 소리를 합쳐 ru n, 달리기를 만들어요." },
-                { image: '😥', word: 'sad', explanation: "스, 애, 드 소리를 합쳐 sa d, 슬픈 감정을 만들어요." },
-                { image: '🧎', word: 'sit', explanation: "스, 이, 트 소리를 합쳐 si t, 앉는 것을 만들어요." },
-                { image: '🏔️', word: 'top', explanation: "트, 아, 프 소리를 합쳐 to p, 꼭대기를 만들어요." },
-                { image: '🧸', word: 'toy', explanation: "트, 오이, 소리를 합쳐 to y, 장난감을 만들어요." },
-                { image: '👕💦', word: 'wet', explanation: "워, 에, 트 소리를 합쳐 we t, 젖은 것을 만들어요." },
-                { image: '🏆', word: 'win', explanation: "워, 이, 느 소리를 합쳐 wi n, 이기는 것을 만들어요." },
-                { image: '💤', word: 'zzz', explanation: "즈, 즈, 즈 소리를 합쳐 z z z, 잠자는 소리를 만들어요." }
+                { image: '🐜', word: 'ant', explanation: "애, 느, 트 소리를 합쳐 an t, 개미를 만들어요." }, { image: '🛏️', word: 'bed', explanation: "브, 에, 드 소리를 합쳐 be d, 침대를 만들어요." },
+                { image: '🚌', word: 'bus', explanation: "브, 어, 스 소리를 합쳐 bu s, 버스를 만들어요." }, { image: '🐈', word: 'cat', explanation: "크, 애, 트 소리를 합쳐 ca t, 고양이를 만들어요." },
+                { image: '🥤', word: 'cup', explanation: "크, 어, 프 소리를 합쳐 cu p, 컵을 만들어요." }, { image: '☀️', word: 'day', explanation: "드, 에이, 소리를 합쳐 da y, 낮을 만들어요." },
+                { image: '🥚', word: 'egg', explanation: "에, 그, 그 소리를 합쳐 eg g, 계란을 만들어요." }, { image: '🦊', word: 'fox', explanation: "프, 아, 크스 소리를 합쳐 fo x, 여우를 만들어요." },
+                { image: '껌', word: 'gum', explanation: "그, 어, 므 소리를 합쳐 gu m, 껌을 만들어요." }, { image: '🐔', word: 'hen', explanation: "흐, 에, 느 소리를 합쳐 he n, 암탉을 만들어요." },
+                { image: '🔥', word: 'hot', explanation: "흐, 아, 트 소리를 합쳐 ho t, 뜨거운 것을 만들어요." }, { image: '🫙', word: 'jam', explanation: "즈, 애, 므 소리를 합쳐 ja m, 잼을 만들어요." },
+                { image: '✈️', word: 'jet', explanation: "즈, 에, 트 소리를 합쳐 je t, 제트기를 만들어요." }, { image: '👄', word: 'lip', explanation: "르, 이, 프 소리를 합쳐 li p, 입술을 만들어요." },
+                { image: '👨', word: 'man', explanation: "므, 애, 느 소리를 합쳐 ma n, 남자를 만들어요." }, { image: '🥜', word: 'nut', explanation: "느, 어, 트 소리를 합쳐 nu t, 견과류를 만들어요." },
+                { image: '🐖', word: 'pig', explanation: "프, 이, 그 소리를 합쳐 pi g, 돼지를 만들어요." }, { image: '🍲', word: 'pot', explanation: "프, 아, 트 소리를 합쳐 po t, 냄비를 만들어요." },
+                { image: '🏃', word: 'run', explanation: "르, 어, 느 소리를 합쳐 ru n, 달리기를 만들어요." }, { image: '😥', word: 'sad', explanation: "스, 애, 드 소리를 합쳐 sa d, 슬픈 감정을 만들어요." },
+                { image: '🧎', word: 'sit', explanation: "스, 이, 트 소리를 합쳐 si t, 앉는 것을 만들어요." }, { image: '🏔️', word: 'top', explanation: "트, 아, 프 소리를 합쳐 to p, 꼭대기를 만들어요." },
+                { image: '🧸', word: 'toy', explanation: "트, 오이, 소리를 합쳐 to y, 장난감을 만들어요." }, { image: '👕💦', word: 'wet', explanation: "워, 에, 트 소리를 합쳐 we t, 젖은 것을 만들어요." },
+                { image: '🏆', word: 'win', explanation: "워, 이, 느 소리를 합쳐 wi n, 이기는 것을 만들어요." }, { image: '💤', word: 'zzz', explanation: "즈, 즈, 즈 소리를 합쳐 z z z, 잠자는 소리를 만들어요." }
             ].map(q => {
-                q.options = q.word.split('');
-                q.answer = q.word;
-                return q;
+                return {
+                    ...q,
+                    answer: q.word,
+                    options: q.word.split('')
+                };
             })
         };
-        
-        // --- 문제 수 선택 화면 표시 ---
-        function showQuestionCountScreen(level) {
-            currentLevel = level;
-            const totalQuestions = quizData[level].length;
-            const titleEl = document.getElementById('question-count-title');
-            const optionsEl = document.getElementById('question-count-options');
 
-            titleEl.textContent = `레벨 ${level}: 몇 문제를 풀어볼까요?`;
-            optionsEl.innerHTML = ''; // 이전 옵션 초기화
-
-            const counts = [5, 10, 20, 30]; 
-            counts.forEach(count => {
-                if (totalQuestions >= count) {
-                    const button = document.createElement('button');
-                    button.textContent = `${count} 문제`;
-                    button.className = 'w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-6 rounded-xl text-2xl transition-transform transform hover:scale-105 shadow-lg action-btn';
-                    button.onclick = () => startQuiz(count);
-                    optionsEl.appendChild(button);
-                }
-            });
-
-            if (counts[counts.length - 1] < totalQuestions) {
-                const allButton = document.createElement('button');
-                allButton.textContent = `전체 (${totalQuestions} 문제)`;
-                allButton.className = 'w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-4 px-6 rounded-xl text-2xl transition-transform transform hover:scale-105 shadow-lg action-btn';
-                allButton.onclick = () => startQuiz(totalQuestions);
-                optionsEl.appendChild(allButton);
-            }
-
-
-            startScreen.classList.add('hidden');
-            questionCountScreen.classList.remove('hidden');
+        // --- 화면 전환 함수 ---
+        function showStartScreen() {
+            startScreen.classList.remove('hidden');
+            questionCountScreen.classList.add('hidden');
+            quizScreen.classList.add('hidden');
+            resultScreen.classList.add('hidden');
         }
 
-        // --- 퀴즈 시작 함수 ---
-        function startQuiz(count) {
+        function showQuestionCountScreen(level) {
+            currentLevel = level;
+            startScreen.classList.add('hidden');
+            questionCountScreen.classList.remove('hidden');
+
+            const title = document.getElementById('question-count-title');
+            const optionsContainer = document.getElementById('question-count-options');
+            optionsContainer.innerHTML = '';
+            
+            let counts = [5, 10];
+            let maxCount = 0;
+
+            if (level === 1) {
+                title.textContent = "레벨 1: 몇 문제를 풀어볼까요?";
+                maxCount = quizData[1].length;
+                if (maxCount > 10) counts.push(20);
+                if (maxCount > 20) counts.push(maxCount);
+            } else if (level === 2) {
+                title.textContent = "레벨 2: 몇 문제를 풀어볼까요?";
+                maxCount = quizData[2].length;
+                if (maxCount > 10) counts.push(20);
+                if (maxCount > 20) counts.push(30);
+            } else if (level === 3) {
+                title.textContent = "레벨 3: 몇 문제를 풀어볼까요?";
+                maxCount = quizData[3].length;
+                if (maxCount > 10) counts.push(20);
+                if (maxCount > 20) counts.push(30);
+            }
+
+            counts.forEach(count => {
+                if(count <= maxCount){
+                    const button = document.createElement('button');
+                    button.textContent = `${count} 문제`;
+                    button.className = 'w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 px-6 rounded-lg text-xl transition action-btn';
+                    button.onclick = () => startGame(count);
+                    optionsContainer.appendChild(button);
+                }
+            });
+             if (!counts.includes(maxCount)) {
+                const button = document.createElement('button');
+                button.textContent = `전체 (${maxCount} 문제)`;
+                button.className = 'w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 px-6 rounded-lg text-xl transition action-btn';
+                button.onclick = () => startGame(maxCount);
+                optionsContainer.appendChild(button);
+            }
+        }
+
+        function startGame(numQuestions) {
             currentQuestionIndex = 0;
             score = 0;
-            questions = quizData[currentLevel].sort(() => Math.random() - 0.5).slice(0, count);
-
+            questions = getQuizData(currentLevel, numQuestions);
+            
             questionCountScreen.classList.add('hidden');
-            resultScreen.classList.add('hidden');
             quizScreen.classList.remove('hidden');
-
-            document.getElementById('level-title').textContent = `레벨 ${currentLevel}`;
+            
             displayQuestion();
         }
 
-        // --- 질문 표시 함수 ---
+        // --- 퀴즈 로직 함수 ---
+        function getQuizData(level, count) {
+            const data = quizData[level];
+            const shuffled = data.sort(() => 0.5 - Math.random());
+            return shuffled.slice(0, count);
+        }
+
         function displayQuestion() {
             isAnswering = false;
+            retryButton.classList.add('hidden');
+            nextButton.classList.add('hidden');
+
             const question = questions[currentQuestionIndex];
             const questionArea = document.getElementById('question-area');
             const optionsContainer = document.getElementById('options-container');
+            const feedbackArea = document.getElementById('feedback-area');
             
-            // UI 초기화
+            document.getElementById('level-title').textContent = `레벨 ${currentLevel}`;
+            document.getElementById('progress').textContent = `${currentQuestionIndex + 1} / ${questions.length}`;
             questionArea.innerHTML = '';
             optionsContainer.innerHTML = '';
-            document.getElementById('feedback-area').innerHTML = '';
-            document.getElementById('retry-button').classList.add('hidden');
-            document.getElementById('next-button').classList.add('hidden');
-            document.getElementById('progress').textContent = `문제 ${currentQuestionIndex + 1} / ${questions.length}`;
-
-            // 레벨별 질문 표시
+            feedbackArea.innerHTML = '';
+            
             if (currentLevel === 1) {
                 questionArea.innerHTML = `<p class="text-8xl font-bold text-sky-500">${question.question}</p>`;
                 speak(question.question);
@@ -304,57 +328,95 @@
                 questionArea.innerHTML = `<p class="text-8xl">${question.image}</p>`;
                  speak(question.word);
             } else if (currentLevel === 3) {
-                 questionArea.innerHTML = `<p class="text-8xl">${question.image}</p><div id="word-display" class="mt-4 h-16 text-4xl font-bold tracking-[1rem] bg-gray-200 rounded-lg flex items-center justify-center w-48 text-gray-500">_ _ _</div>`;
+                 questionArea.innerHTML = `<p class="text-8xl">${question.image}</p><div id="word-display" class="mt-4 h-20 text-4xl font-bold flex items-center justify-center gap-2"></div>`;
+                 speak(question.word, 'en-US', () => speak(question.word, 'en-US'));
             }
             
             // 선택지 생성 (레벨 1, 2)
             if (currentLevel === 1 || currentLevel === 2) {
                 optionsContainer.className = 'grid grid-cols-2 gap-4';
-                const shuffledOptions = question.options.sort(() => Math.random() - 0.5);
-                shuffledOptions.forEach(option => {
+                question.options.forEach(option => {
                     const button = document.createElement('button');
                     button.textContent = option;
                     button.className = 'option-btn bg-white hover:bg-sky-200 border-4 border-sky-300 text-sky-700 font-bold py-6 text-5xl rounded-xl transition-all duration-200';
-                    button.onclick = (e) => checkAnswer(option, e.target);
+                    button.onclick = () => checkAnswer(option, button);
                     optionsContainer.appendChild(button);
                 });
             }
             // 선택지 생성 (레벨 3)
             else if (currentLevel === 3) {
                 optionsContainer.className = 'grid grid-cols-3 gap-4';
-                let currentWord = [];
-                const wordDisplay = document.getElementById('word-display');
+                level3_currentWord = []; // 단어 배열 초기화
+                level3_letterTiles = {}; // 타일 정보 객체 초기화
                 
-                const shuffledOptions = question.options.sort(() => Math.random() - 0.5);
-                shuffledOptions.forEach(letter => {
+                const shuffledOptions = question.options.map((val, i) => [val, i]).sort(() => Math.random() - 0.5);
+                
+                shuffledOptions.forEach(([letter, originalIndex]) => {
                     const button = document.createElement('button');
+                    const tileId = `tile-${originalIndex}`;
+                    
                     button.textContent = letter;
+                    button.id = tileId;
                     button.className = 'option-btn bg-white hover:bg-yellow-200 border-4 border-yellow-400 text-yellow-700 font-bold py-6 text-5xl rounded-xl transition-all duration-200';
-                    button.onclick = () => {
-                        if (currentWord.length < 3 && !button.disabled) {
-                            speak(letter);
-                            currentWord.push(letter);
-                            updateWordDisplay();
-                            button.disabled = true;
-                            button.classList.add('opacity-50', 'cursor-not-allowed');
-                            
-                            if (currentWord.length === 3) {
-                                setTimeout(() => {
-                                    checkAnswer(currentWord.join(''), optionsContainer);
-                                }, 500);
-                            }
-                        }
-                    };
+                    button.onclick = () => selectLetter(letter, tileId);
+                    
+                    level3_letterTiles[tileId] = { letter: letter, element: button };
                     optionsContainer.appendChild(button);
                 });
+                updateWordDisplay(); // 초기 빈 칸 표시
+            }
+        }
 
-                function updateWordDisplay() {
-                    let displayText = '';
-                    for (let i = 0; i < 3; i++) {
-                        displayText += (currentWord[i] || '_') + ' ';
-                    }
-                    wordDisplay.textContent = displayText.trim();
-                    wordDisplay.classList.remove('text-gray-500');
+        function selectLetter(letter, tileId) {
+            if (level3_currentWord.length >= 3 || isAnswering) return;
+
+            speak(letter, 'en-US');
+            
+            const tile = level3_letterTiles[tileId];
+            tile.element.disabled = true;
+            tile.element.classList.add('opacity-30', 'cursor-not-allowed');
+
+            level3_currentWord.push({ letter: letter, tileId: tileId });
+            updateWordDisplay();
+
+            if (level3_currentWord.length === 3) {
+                setTimeout(() => {
+                    checkAnswer(level3_currentWord.map(item => item.letter).join(''), document.getElementById('word-display'));
+                }, 500);
+            }
+        }
+
+        function deselectLetter(index) {
+            if (isAnswering) return;
+
+            const deselectedItem = level3_currentWord.splice(index, 1)[0];
+            const tile = level3_letterTiles[deselectedItem.tileId];
+
+            tile.element.disabled = false;
+            tile.element.classList.remove('opacity-30', 'cursor-not-allowed');
+
+            updateWordDisplay();
+        }
+
+        function updateWordDisplay() {
+            const wordDisplay = document.getElementById('word-display');
+            wordDisplay.innerHTML = '';
+
+            for (let i = 0; i < 3; i++) {
+                if (level3_currentWord[i]) {
+                    const item = level3_currentWord[i];
+                    const answerTile = document.createElement('button');
+                    answerTile.textContent = item.letter;
+                    answerTile.className = 'option-btn bg-yellow-400 border-4 border-yellow-500 text-white font-bold w-20 h-20 text-5xl rounded-xl transition-all duration-200 flex items-center justify-center';
+                    // 클로저 문제를 피하기 위해 즉시 실행 함수 사용
+                    (function(index) {
+                        answerTile.onclick = () => deselectLetter(index);
+                    })(i);
+                    wordDisplay.appendChild(answerTile);
+                } else {
+                    const emptySlot = document.createElement('div');
+                    emptySlot.className = 'bg-gray-200 w-20 h-20 rounded-xl';
+                    wordDisplay.appendChild(emptySlot);
                 }
             }
         }
@@ -363,19 +425,18 @@
         function checkAnswer(selectedAnswer, element) {
             if (isAnswering) return;
             isAnswering = true;
-
+            
             const question = questions[currentQuestionIndex];
             const feedbackArea = document.getElementById('feedback-area');
-            const allOptions = document.querySelectorAll('.option-btn');
-            allOptions.forEach(btn => btn.disabled = true);
+            const isCorrect = selectedAnswer === question.answer;
 
-            if (selectedAnswer === question.answer) {
+            if (isCorrect) {
                 score++;
                 feedbackArea.innerHTML = `<p class="text-3xl font-bold text-green-500">정답입니다!</p>`;
                 speak("Correct!", 'en-US');
                 
                 if (currentLevel === 3) {
-                    document.getElementById('word-display').classList.add('text-green-500');
+                    element.classList.add('correct-answer');
                 } else {
                     element.classList.remove('bg-white', 'border-sky-300');
                     element.classList.add('bg-green-500', 'text-white', 'border-green-600', 'correct-answer');
@@ -389,51 +450,55 @@
                 feedbackArea.innerHTML = `<p class="text-2xl font-bold text-red-500">아쉬워요, 다시 생각해볼까요?</p><p class="text-lg text-gray-600">${question.explanation}</p>`;
                 
                 if (currentLevel === 3) {
-                     document.getElementById('word-display').classList.add('text-red-500', 'incorrect-answer');
+                     element.classList.add('incorrect-answer');
                 } else {
                     element.classList.add('incorrect-answer');
                 }
                                 
                 speak(question.explanation, 'ko-KR', () => {
-                    document.getElementById('retry-button').classList.remove('hidden');
-                    document.getElementById('next-button').classList.remove('hidden');
+                    if(currentLevel === 3){
+                       // 레벨 3 오답 시, 타일 초기화
+                       level3_currentWord.forEach(item => {
+                           const tile = level3_letterTiles[item.tileId];
+                           tile.element.disabled = false;
+                           tile.element.classList.remove('opacity-30', 'cursor-not-allowed');
+                       });
+                       level3_currentWord = [];
+                       updateWordDisplay();
+                       element.classList.remove('incorrect-answer');
+                    }
+                    retryButton.classList.remove('hidden');
+                    nextButton.classList.remove('hidden');
+                    isAnswering = false;
                 });
             }
+             document.querySelectorAll('.option-btn').forEach(btn => {
+                if (currentLevel === 1 || currentLevel === 2) {
+                    btn.disabled = true;
+                }
+            });
         }
-
+        
         function retryQuestion() {
             displayQuestion();
         }
 
-        // --- 다음 문제로 넘어가는 함수 ---
         function nextQuestion() {
             currentQuestionIndex++;
             if (currentQuestionIndex < questions.length) {
                 displayQuestion();
             } else {
-                showResult();
+                showResultScreen();
             }
         }
 
-        // --- 결과 표시 함수 ---
-        function showResult() {
+        function showResultScreen() {
             quizScreen.classList.add('hidden');
             resultScreen.classList.remove('hidden');
-            document.getElementById('score-text').textContent = `총 ${questions.length} 문제 중 ${score} 문제를 맞혔어요!`;
+            document.getElementById('score-text').textContent = `총 ${questions.length}문제 중 ${score}문제를 맞혔어요!`;
         }
-        
-        // --- 시작 화면으로 돌아가는 함수 ---
-        function showStartScreen() {
-            resultScreen.classList.add('hidden');
-            quizScreen.classList.add('hidden');
-            questionCountScreen.classList.add('hidden');
-            startScreen.classList.remove('hidden');
-        }
-
     </script>
+
 </body>
 </html>
-
-
-
 
